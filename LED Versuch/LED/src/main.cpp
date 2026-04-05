@@ -25,22 +25,22 @@ void loop(){
   }
   if(eingang == "1"){
     digitalWrite(ledPin9, HIGH);
-    
+    delay(500),
     digitalWrite(ledPin9, LOW);
   }
   if(eingang == "2"){
     digitalWrite(ledPin13, HIGH);
-    
+    delay(500);
     digitalWrite(ledPin13, LOW);
   }
   if(eingang == "3"){
     digitalWrite(ledPin3, HIGH);
-    
+    delay(500);
     digitalWrite(ledPin3, LOW);
   }
   if(eingang == "4"){
     digitalWrite(ledPin11, HIGH);
-    
+    delay(500);
     digitalWrite(ledPin11, LOW);
   }
 }
