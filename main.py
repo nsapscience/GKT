@@ -67,6 +67,7 @@ def transfer():
         if ser:
             ser.write(str(r).encode())
 
+
 #Erstellt das Fenster
 def window():  
     window = tk.Tk()
