@@ -14,6 +14,7 @@ import tkinter as tk
 from multiprocessing import Process
 from threading import Thread
 
+#Übergangsweise
 import random
 
 #Versucht Verbindung zum ESP32 herzustellen
@@ -31,7 +32,7 @@ def zufall():
         time.sleep(3)
 
 #Gibt Zahl an ESP32 weiter
-def zahl():
+def weitergabe():
     while True:
         if ser:
             ser.write(str(r).encode())
@@ -44,11 +45,17 @@ def window():
     window.title("Objekt Erkennung")
     window.geometry("400x200")
 
-    text = tk.Label(window, text="")
-    text.pack()
+    error_typ = tk.Label(window, text="") #Fehlerart (falls geht)
+    error_typ.pack()
 
+    procent = tk.label(window, text="") #Prozent Übereinstimmung mit Optimum
+    procent.pack()
+
+    p = 50 #Später durch Variable, welche die Übereinstimmigkeit mit perfektem Teil abstimmt (neue funktion zur Berechnung)
+    
     def update_text():
-        text.config(text=str(r))
+        error_typ.config(error_typ=str(r))
+        procent.config(procent=str(p) + "%")
         window.after(200, update_text)
 
     update_text()
@@ -57,7 +64,7 @@ def window():
 
 #Verbindet alle benötigte Funktionen miteinander
 def main():
-    producer = Thread(target=zufall)
+    producer = Thread(target=weitergabe)
     consumer = Thread(target=zahl)
 
     producer.start()
