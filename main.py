@@ -35,12 +35,13 @@ def output_deviation():
         
     global deviation #Für andere Funktionen veröffentlicht
     #Berechnung der Gesamtabweichung
-    deviation = (calculation(ideal_color, color)*0,X + #Berechnung Farbe
-                 calculation(ideal_scratch, scratch)*0,X #Berechnung Kratzer
+    deviation = (calculation(ideal_color, color)*0,3 +      #Berechnung Farbe
+                 calculation(ideal_scratch, scratch)*0,3 +   #Berechnung Kratzer
+                 calculation(ideal_size, size)*0,3      #Berechnung Größe
                 # + weitere Berechnungen
                 )
-    #Muss noch 0,X anpassen!!!
-    #Soll die Werte zur Berechnugn von der Kamera und KI bekommen (scratch, color)
+
+    #Soll die Werte zur Berechnung von der Kamera und KI bekommen (scratch, color)
         #ideal_value ist immer in 100 gerechnet
             #Bspw.: ideal_color = 100 (%), color = 95 (%)
         #Muss noch KI sagen was Optimum ist
@@ -50,6 +51,7 @@ def output_deviation():
 #Gibt an welchen Status das Programm gerade hat und was gut/schlecht ist für Produkte
 def status():
     print("Hello World!")
+
     #Könnte aber meiner Meinung nach irgendwo hängen bleiben, Blau für Überprüfen
     #Er überprüft ja dauerhaft...
         #Ihn nur in einer gewissen Zeit überprüfen lassen?
@@ -60,11 +62,11 @@ def status():
 
 #Rückmeldung an ESP32 was gerade passiert und was mit dem Produkt ist (gut, schlecht, unsicher, überprüft)
 def transfer():
-    r = randint(1, 100)
+    r = random.randint(1, 100)
     while True:
         if ser:
             ser.write(str(r).encode())
-        time.sleep(3)
+
 
 #Erstellt das Fenster
 def window():  
@@ -81,7 +83,7 @@ def window():
     p = 50 #Später durch Variable, welche die Übereinstimmigkeit mit perfektem Teil abstimmt (neue funktion zur Berechnung)
     
     def update_text():
-        error_typ.config(error_typ=str(r))
+        error_typ.config(error_typ=str(p))
         procent.config(procent=f"Abweichung: {deviation:.1f}%")
         #Aktualisiert das Fenster alle 200ms
         window.after(200, update_text)
