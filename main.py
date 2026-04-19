@@ -1,5 +1,4 @@
 #import aller Sachen für Objekterkennung
-from matplotlib.pyplot import box
 from ultralytics import YOLO
 import cv2
 import numpy as np
@@ -22,24 +21,43 @@ import random
 try:
     ser = serial.Serial('COM3', 115200, timeout=3)
     print("Verbindung zu ESP32 hergestellt")
+    time.sleep(2) #Wartezeit, damit ESP32 bereit ist
 except serial.SerialException:
     print("Fehler: Verbindung zu ESP32 konnte nicht hergestellt werden")
 
-#!WIRD NOCH NICHT AUFGEFUREN
-def area():
-    x1, y1, x2, y2 = box
-
-    width = x2 - x1
-    height = y2 - y1
-    
-    area_px = width * height
-    area_mm2 = area_px * (0.2 ** 2) #!Umrechnungsfaktor von px in mm², muss noch an Kamera angepasst werden
 
 
 
 
 
+#!WIRD NOCH NICHT AUSGEFÜHRT
+model = YOLO("yolov8n.pt")
+cam = cv2.VideoCapture(0)
+area_mm2 = 0
+deviation = 0.0
 
+def art_int():
+    global area_mm2
+    while True:
+        ret, frame = cam.read()
+        if not ret:
+            break
+        results = model(frame)
+
+        for result in results:
+            for box in result.boxes:
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                conf = float(box.conf[0])
+                if conf < 0.5:
+                    continue
+
+                width = x2 - x1
+                height = y2 - y1
+                area_mm2 = width * height * (0.2 ** 2)
+
+        if cv2.waitKey(1) == ord('q'):
+            break
+    cam.release()    
 
 
 
@@ -47,40 +65,40 @@ def area():
 
 
 #Übergangsweise
-ideal_scratch = 0
-ideal_size = 0
-
-
-
-
-
+bad_value = 100 #* 100%
 
 #*Berechnung der Abweichung
 def output_deviation():
-    #Berechnung der Werte
-    def calculation(ideal_value, value):
-        return abs(value - ideal_value) / ideal_value * 100
-        
+    #Berechnung der Werte       
     global deviation #Für andere Funktionen veröffentlicht
     #Berechnung der Gesamtabweichung
-    deviation = (calculation(ideal_scratch, scratch)*0,3 +   #Berechnung Kratzer
-                 calculation(ideal_size, size)*0,3      #Berechnung Größe
-                # + weitere Berechnungen
-                )
-
+    while True:
+        deviation = min((area_mm2 / bad_value) * 100, 100)
+        time.sleep(1)
     #Soll die Werte zur Berechnung von der Kamera und KI bekommen (scratch, color)
         #ideal_value ist immer in 100 gerechnet
             #Bspw.: ideal_color = 100 (%), color = 95 (%)
         #Muss noch KI sagen was Optimum ist
 
+
+
+
+
+
 #*Gibt an welchen Status das Programm gerade hat und was gut/schlecht ist für Produkte
-def status():
-    print("Hello World!")
+def status(msg):
+    message = msg + '\n'
+    ser.write(message.encode('utf-8'))
 
     #Könnte aber meiner Meinung nach irgendwo hängen bleiben, Blau für Überprüfen
     #Er überprüft ja dauerhaft...
         #Ihn nur in einer gewissen Zeit überprüfen lassen?
             #zwischen den Zeiten dann calculation() und tranfer()
+
+
+
+
+
 
 #*Rückmeldung an ESP32 was gerade passiert und was mit dem Produkt ist (gut, schlecht, unsicher, überprüft)
 def transfer():
@@ -88,6 +106,13 @@ def transfer():
     while True:
         if ser:
             ser.write(str(r).encode()) #!Muss noch geändert werden, mit den Werten die weiteregegeben werden sollen!
+        time.sleep(1)
+
+
+
+
+
+
 
 #*Erstellt das Fenster
 def window():  
@@ -98,27 +123,40 @@ def window():
     error_typ = tk.Label(window, text="") #Fehlerart (falls geht)
     error_typ.pack()
 
-    procent = tk.label(window, text="") #Prozent Übereinstimmung mit Optimum
+    procent = tk.Label(window, text="") #Prozent Übereinstimmung mit Optimum
     procent.pack()
 
     p = 50 #Später durch Variable, welche die Übereinstimmigkeit mit perfektem Teil abstimmt (neue funktion zur Berechnung)
     
     def update_text():
-        error_typ.config(error_typ=str(p))
-        procent.config(procent=f"Abweichung: {deviation:.1f}%")
+        error_typ.config(text=str(p))
+        procent.config(text=f"Abweichung: {deviation:.1f}%")
         #Aktualisiert das Fenster alle 200ms
         window.after(200, update_text)
 
     update_text()
     window.mainloop()
 
+
+
+
+
+
 #*Verbindet alle benötigte Funktionen miteinander
 def main():
-    producer = Thread(target=transfer)
-    consumer = Thread(target=output_deviation)
+    t_camera = Thread(target=art_int)
+    t_transfer = Thread(target=transfer)
+    t_deviation = Thread(target=output_deviation)
 
-    producer.start()
-    consumer.start()
+    t_camera.start()
+    t_transfer.start()
+    t_deviation.start()
+
+
+    #*HIER MUSS DANN NOCH ALLES REIN, ES IST NOCH GAR NICHTS FERTIG!
+
+
+
 
 #Aufruf der Funktionen
 main()
