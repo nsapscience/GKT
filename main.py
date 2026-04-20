@@ -17,6 +17,19 @@ from threading import Thread
 #Übergangsweise
 import random
 
+
+
+#Globale Zustände
+area_mm2 = 0
+deviation = 0.0
+detection_ok= = False
+
+#*Definitionen
+model = YOLO("yolov8n.pt")
+cameras =[cv2.VideoCapture(i) for i in range(4)] #Öffnen der Kameras
+
+
+
 #*Versucht Verbindung zum ESP32 herzustellen
 try:
     ser = serial.Serial('COM3', 115200, timeout=3)
@@ -30,20 +43,6 @@ except serial.SerialException:
 
 
 
-#!WIRD NOCH NICHT AUSGEFÜHRT
-model = YOLO("yolov8n.pt")
-
-#Öffnen der Kameras
-cameras = [
-    cv2.VideoCapture(0),
-    cv2.VideoCapture(1),
-    cv2.VideoCapture(2),
-    cv2.VideoCapture(3),
-]
-
-#Übergangsweise
-area_mm2 = 0
-deviation = 0.0
 
 def art_int(cam):
     global area_mm2
