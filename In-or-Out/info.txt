@@ -5,3 +5,6 @@ Script führt KI und Kameras aus
 Script gibt Signal an XXX zurück
 XXX gibt Signal an Maschine weiter
 Maschine schließt sich (Prod. raus) oder wartet (Prod. drin)
+
+
+I/O-Modul zwischenklemmen?
