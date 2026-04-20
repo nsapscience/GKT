@@ -6,10 +6,15 @@ from Thread import threading
 #Eingang von der Maschine bekommen
 
 
-def analyse()
+def analyse() #Hier passiert alles wichtige
 
 
 
-def main
-  t.analyse = Thread(target=analyse)
-  t.analyse
+
+
+
+def main()
+  t_analyse = Thread(target=analyse)
+  t_analyse.start()
+
+main() #Führt die main()-Funktion aus
