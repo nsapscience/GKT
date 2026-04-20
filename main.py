@@ -32,11 +32,20 @@ except serial.SerialException:
 
 #!WIRD NOCH NICHT AUSGEFÜHRT
 model = YOLO("yolov8n.pt")
-cam = cv2.VideoCapture(0)
+
+#Öffnen der Kameras
+cameras = [
+    cv2.VideoCapture(0),
+    cv2.VideoCapture(1),
+    cv2.VideoCapture(2),
+    cv2.VideoCapture(3),
+]
+
+#Übergangsweise
 area_mm2 = 0
 deviation = 0.0
 
-def art_int():
+def art_int(cam):
     global area_mm2
     while True:
         ret, frame = cam.read()
@@ -48,16 +57,33 @@ def art_int():
             for box in result.boxes:
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
                 conf = float(box.conf[0])
+                #Alles über 0.5% Sicherheit, wird berechnet
                 if conf < 0.5:
                     continue
-
+                #Berechnung der Fläche des Fehlers
                 width = x2 - x1
                 height = y2 - y1
                 area_mm2 = width * height * (0.2 ** 2)
 
         if cv2.waitKey(1) == ord('q'):
             break
-    cam.release()    
+
+
+try:
+    # Alle Kameras parallel in eigenen Threads starten
+    import threading
+    threads = [threading.Thread(target=art_int, args=(cam,)) for cam in cameras]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+#Wird sicherhaltshalber immer ausgeführt, damit im Hindergrund nichts aktiv ist
+finally:
+    # Alle Kameras sauber freigeben
+    for cam in cameras:
+        cam.release()
+    cv2.destroyAllWindows()
 
 
 
