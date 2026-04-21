@@ -13,14 +13,12 @@ model = YOLO("yolov8n.pt")
 
 
 #Hier passiert alles wichtige
-def analyse()
+def analyse():
+  print("hello world")
 
 
-
-
-
-def main()
-  t_analyse = Thread(target=analyse)
+def main():
+  t_analyse = threading.Thread(target=analyse)
   
   t_analyse.start()
 
