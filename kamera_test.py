@@ -18,4 +18,3 @@ for cap in cameras:
     cap.release()
 
 cv2.destroyAllWindows()
-print("Hello World")
