@@ -22,7 +22,7 @@ import random
 #Globale Zustände
 area_mm2 = 0
 deviation = 0.0
-detection_ok= = False
+detection_ok = False
 
 #*Definitionen
 model = YOLO("yolov8n.pt")
@@ -47,9 +47,12 @@ except serial.SerialException:
 def art_int(cam):
     global area_mm2
     while True:
-        ret, frame = cam.read()
-        if not ret:
-            break
+        for idx, cam in enumerate(cameras):
+            ret, frame = cam.read()
+
+            if not ret:
+                break
+
         results = model(frame)
 
         for result in results:
@@ -64,10 +67,6 @@ def art_int(cam):
                 height = y2 - y1
                 area_mm2 = width * height * (0.2 ** 2)
 
-        if cv2.waitKey(1) == ord('q'):
-            break
-
-
 try:
     # Alle Kameras parallel in eigenen Threads starten
     import threading
@@ -76,7 +75,7 @@ try:
         t.start()
     for t in threads:
         t.join()
-
+        
 #Wird sicherhaltshalber immer ausgeführt, damit im Hindergrund nichts aktiv ist
 finally:
     # Alle Kameras sauber freigeben
