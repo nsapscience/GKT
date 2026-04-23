@@ -1,68 +1,50 @@
-import cv2
 from ultralytics import YOLO
-from collections import defaultdict
+import cv2
 
 
-MODEL_PATH = "yolov8n.pt"  # vortrainiertes YOLOv8 Modell (n = nano, schnell)
-VIDEO_SOURCE = 0           # 0 = Webcam, oder Pfad zu Videodatei z.B. "video.mp4"
-CONF_THRESHOLD = 0.5       # Mindest-Konfidenz für Erkennung
+model = YOLO("yolov8n.pt")
+cam = cv2.VideoCapture(0)
+next_id = 0
+carton_box = cv2.rectangle((100, 200), (300, 400), (255, 0, 0), 2)
 
 
-try:
-    model = YOLO(MODEL_PATH)
-except Exception as e:
-    print(f"Fehler beim Laden des Modells: {e}")
-    exit(1)
+
+#Gibt jedem Objekt eine ID, damit man sie über mehrere Frames hinweg verfolgen kann
+def give_id():
+    global obj_id #Freigeben für andere Funktionen
+
+    next_id += 1 #ID erhöhen, damit jedes Objekt eine neue ID bekommt
+    obj_id = next_id
 
 
-cap = cv2.VideoCapture(VIDEO_SOURCE)
-if not cap.isOpened():
-    print("Fehler: Konnte Videoquelle nicht öffnen.")
-    exit(1)
 
 
-total_counts = defaultdict(int)
 
-print("Drücke 'q' zum Beenden.")
+#Zählt die Anzahl der Objekte, die Erkannt wurden
+def count():
+    print("Hello World")
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        break
 
-    # YOLO-Inferenz
-    results = model(frame, conf=CONF_THRESHOLD)
 
-    # Ergebnisse verarbeiten
-    for result in results:
-        boxes = result.boxes
-        names = model.names
 
-        for box in boxes:
-            cls_id = int(box.cls[0])
-            label = names[cls_id]
-            total_counts[label] += 1
 
-            # Bounding Box zeichnen
-            x1, y1, x2, y2 = map(int, box.xyxy[0])
-            conf = float(box.conf[0])
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-            cv2.putText(frame, f"{label} {conf:.2f}",
-                        (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX,
-                        0.5, (0, 255, 0), 1)
+#Wenn Objekt in den Karton gefallen ist, wird die ID gelöscht und damit wieder freigegeben
+#Somit geht der ID-Wert nicht in das unendliche
+def forget():
+    if obj_id in karton:
+        del obj_id
 
-    # Zähleranzeige
-    y_offset = 20
-    for label, count in total_counts.items():
-        cv2.putText(frame, f"{label}: {count}",
-                    (10, y_offset), cv2.FONT_HERSHEY_SIMPLEX,
-                    0.6, (255, 255, 255), 2)
-        y_offset += 20
 
-    cv2.imshow("YOLO Objektzählung", frame)
 
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
 
-cap.release()
-cv2.destroyAllWindows()
+#Verbindet alles miteinander (Threading?)
+def main():
+    print("Hello World")
+
+
+
+
+
+
+if __name__ == "__main__":
+    main()
