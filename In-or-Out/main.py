@@ -4,6 +4,11 @@ import time
 from threading import Thread
 import cv2
 
+#Definitionen
+cameras = [cv2.VideoCapture(i) for i in range(2)]
+model = YOLO("yolov8n.pt")
+inside = False
+
 #Eingang von der Maschine bekommen
 def input():
   print("Eingang von der Maschine bekommen")
@@ -12,13 +17,12 @@ def input():
 def output():
   print("Ausgang an die Maschine gesendet")
 
-#Definitionen
-cameras = [cv2.VideoCapture(i) for i in range(2)]
-model = YOLO("yolov8n.pt")
+
 
 
 #Hier passiert alles wichtige
 def analyse():
+  global inside
   for idx, cam in enumerate(cameras):
     ret, frame = cam.read()
 
@@ -35,10 +39,10 @@ def analyse():
         cls = box.cls[0]
 
         if conf > 0.5:
-          print("Teil ist drin")
+          inside = True
           #Signal weiter das Teil drin
         else: 
-          print("Teil ist nicht drin")
+          inside = False
           #Signal weiter das Teil nicht drin
 
 
@@ -51,4 +55,7 @@ def main():
   t_analyse.start()
   t_output.start()
 
-main() #Führt die main()-Funktion aus
+
+#Ausführen der main()-Funktion
+if __name__ == "__main__":
+  main()
