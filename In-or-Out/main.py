@@ -5,15 +5,23 @@ from threading import Thread
 import cv2
 
 #Definitionen
-cameras = [cv2.VideoCapture(i) for i in range(2)]
-model = YOLO("yolov8n.pt")
-inside = False
+cameras = [cv2.VideoCapture(i) for i in range(2)] #2 Kameras öffnen
+model = YOLO("yolov8n.pt")  #KI öffnen
+inside = True #Grundlegend ist ein Teil in der Form, sicherheit das die Maschine nicht einfach wieder losfährt
 
-#Eingang von der Maschine bekommen
+#Kamera-Auflösung
+for cam in cameras:
+  cam.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+  cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+
+
+
+
+#Von Maschine Signal bekommen
 def input():
   print("Eingang von der Maschine bekommen")
 
-
+#An Maschine Signal schicken
 def output():
   print("Ausgang an die Maschine gesendet")
 
@@ -46,6 +54,7 @@ def analyse():
           #Signal weiter das Teil nicht drin
 
 
+#Hauptfunktion in der alles zusammengepackt wird 
 def main():
   t_input = Thread(target=input)
   t_analyse = Thread(target=analyse)
@@ -56,6 +65,6 @@ def main():
   t_output.start()
 
 
-#Ausführen der main()-Funktion
+#Aufrufen und Ausführen der main()-Funktion
 if __name__ == "__main__":
   main()
