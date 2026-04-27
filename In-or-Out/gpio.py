@@ -1,30 +1,36 @@
-import Jeston.GPIO as GPIO
-import time
+import Jetson.GPIO as GPIO
 
-GPIO.setmode(GPIO.board)
+global_initialized = False
 
-PIN_OUT = 11 
-PIN_IN = 7
+PIN_OUT = 11
 
-GPIO.setup(PIN_IN, GPIO.IN, pull_up_down=GPIO.PUD_UP)
-GPIO.setup(PIN_OUT, GPIO.OUT, initial=GPIO.LOW)
+def init_gpio(pin_out=PIN_OUT):
+    global global_initialized, PIN_OUT
+    PIN_OUT = pin_out
+
+    GPIO.setmode(GPIO.board)
+    GPIO.setup(PIN_OUT, GPIO.OUT, initial=GPIO.LOW)
+    global_initialized = True
 
 
-try: 
-    while True:
-        kontakt = GPIO.input(PIN_IN)
+def set_output_signal(active: bool):
+    if not global_initialized:
+        init_gpio()
+    GPIO.output(PIN_OUT, GPIO.HIGH if active else GPIO.LOW)
 
-        if kontakt == GPIO.LOW:
-            GPIO.output(PIN_OUT, GPIO.HIGH)
-            print("Kontakt: Geschlossen -> Ausgang: An")
-        else:
-            GPIO.output(PIN_OUT, GPIO.LOW)
-            print("Kontakt: Offen -> Ausgang: Aus")
 
-        time.sleep(0.1)
+def cleanup():
+    if global_initialized:
+        GPIO.cleanup()
 
-except KeyboardInterrupt:
-    print("Beendet.")
 
-finally:
-    GPIO.cleanup()
+if __name__ == "__main__":
+    try:
+        init_gpio()
+        while True:
+            set_output_signal(True)
+            set_output_signal(False)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        cleanup()

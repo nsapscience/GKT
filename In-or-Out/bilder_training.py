@@ -1,0 +1,1 @@
+#Skript zum Aufnehmen der Bilder für das Training der KI
