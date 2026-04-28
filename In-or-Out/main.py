@@ -15,7 +15,6 @@ from ultralytics import YOLO
 from threading import Thread
 from queue import Queue
 #Jetson Orin Nano Super
-import Jetson
 import Jetson.GPIO as GPIO
 #Der Rest
 import cv2
@@ -33,7 +32,7 @@ model = YOLO("yolov8n.engine", device='cuda' if torch.cuda.is_available() else '
 #Grundlegend ist ein Teil in der Form, sicherheit das die Maschine nicht einfach wieder losfährt
 inside = True 
 #Queue für Frames vom Analyse-Thread zum Hauptthread, begrenzte Größe um Speicher zu sparen
-frame_queue = Queue(maxsize=10)
+frame_queue = Queue(maxsize=20)
 stop_analysis = False  # Flagge zum Beenden der Analyse
 #globale Variable, die verfolgt, ob die GPIO-Initialisierung bereits erfolgt ist (um Mehrfachinitialisierungen zu vermeiden)
 global_initialized_gpio = False
@@ -73,32 +72,41 @@ def analyse():
   global inside, stop_analysis
   
   while not stop_analysis:  
-    for idx, cam in enumerate(cameras):
-      ret, frame = cam.read()
-      
-      if not ret:
-          continue
+    try:
+      for idx, cam in enumerate(cameras):
+        ret, frame = cam.read()
+        
+        if not ret:
+            continue
 
-      with suppress_output():
-        results = model(frame, imgsz=416, conf=0.5, half=torch.cuda.is_available(), verbose=False)
-      annotated_frame = results[0].plot()
+        with suppress_output():
+          results = model(frame, imgsz=320, conf=0.5, half=torch.cuda.is_available(), verbose=False)
+        annotated_frame = results[0].plot()
 
-      for result in results:
-        boxes = result.boxes
-        for box in boxes:
-          x1, y1, x2, y2 = box.xyxy[0]
-          conf = box.conf[0]
-          cls = box.cls[0]
-
-          if conf > 0.5:
-            inside = True
-            #Signal weiter das Teil drin
-          else: 
-            inside = False
-            #Signal weiter das Teil nicht drin
-      
-      # Frame in Queue für Hauptthread legen
-      frame_queue.put(annotated_frame)
+        # Prüfe, ob irgendein Objekt erkannt wurde
+        detected = False
+        for result in results:
+          boxes = result.boxes
+          if len(boxes) > 0:
+            for box in boxes:
+              conf = box.conf[0]
+              if conf > 0.5:
+                detected = True
+                break
+            if detected:
+              break
+        
+        inside = detected  # True wenn Teil erkannt, False sonst
+        
+        # Frame in Queue legen, ohne Blockieren
+        try:
+          frame_queue.put_nowait(annotated_frame)
+        except:
+          # Queue voll - Frame überspringen
+          pass
+    except Exception as e:
+      print(f"Fehler in analyse(): {e}")
+      continue
 
 #An Maschine Signal schicken, ob Produkt noch in der Form ist oder nicht
 def output():
@@ -108,16 +116,18 @@ def output():
     init_gpio()
   
   while not stop_analysis:
-    if inside == True:
-      # Teil noch in der Form - GPIO LOW (kein Signal)
-      GPIO.output(PIN_OUT, GPIO.LOW)
-      print("Teil noch drin, GPIO LOW")
-    else:
-      # Teil nicht mehr in der Form - GPIO HIGH (Signal gesendet)
-      GPIO.output(PIN_OUT, GPIO.HIGH)
-      print("Teil ist nicht mehr drin, GPIO HIGH")
-    
-    time.sleep(0.1)  # 100ms Verzögerung, um CPU-Auslastung zu reduzieren
+    try:
+      if inside == True:
+        # Teil noch in der Form - GPIO LOW (kein Signal)
+        GPIO.output(PIN_OUT, GPIO.LOW)
+        print("Teil noch drin, GPIO LOW")
+      else:
+        # Teil nicht mehr in der Form - GPIO HIGH (Signal gesendet)
+        GPIO.output(PIN_OUT, GPIO.HIGH)
+        print("Teil ist nicht mehr drin, GPIO HIGH")
+    except Exception as e:
+      print(f"Fehler in output(): {e}")
+      continue
 
 #Hauptfunktion in der alles zusammengepackt wird 
 def main():
@@ -141,9 +151,13 @@ def main():
       # Queue ist leer - weitermachen ohne warten
       pass
     
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-      stop_analysis = True
-      break
+    try:
+      if cv2.waitKey(1) & 0xFF == ord('q'):
+        stop_analysis = True
+        break
+    except:
+      # Fehler bei waitKey - ignorieren
+      pass
   
   # Aufräumen
   t_analyse.join(timeout=5)
