@@ -38,7 +38,6 @@ stop_analysis = False  # Flagge zum Beenden der Analyse
 global_initialized_gpio = False
 #GPIO-Pins für Signalausgabe an die Maschine
 PIN_OUT = 10
-PIN2_OUT = 11
 
 #GPIO initialisieren
 def init_gpio():
@@ -47,13 +46,11 @@ def init_gpio():
   GPIO.setmode(GPIO.BOARD)
   GPIO.setup(PIN_OUT, GPIO.OUT, initial=GPIO.LOW)
   global_initialized_gpio = True
-  print("GPIO initialisiert")
 
 #GPIO aufräumen
 def cleanup_gpio():
   if global_initialized_gpio:
     GPIO.cleanup()
-    print("GPIO aufgeräumt")
 
 #Konsolenausgabe der KI unterdrücken
 @contextmanager 
@@ -105,7 +102,6 @@ def analyse():
           # Queue voll - Frame überspringen
           pass
     except Exception as e:
-      print(f"Fehler in analyse(): {e}")
       continue
 
 #An Maschine Signal schicken, ob Produkt noch in der Form ist oder nicht
@@ -120,13 +116,10 @@ def output():
       if inside == True:
         # Teil noch in der Form - GPIO LOW (kein Signal)
         GPIO.output(PIN_OUT, GPIO.LOW)
-        print("Teil noch drin, GPIO LOW")
       else:
         # Teil nicht mehr in der Form - GPIO HIGH (Signal gesendet)
         GPIO.output(PIN_OUT, GPIO.HIGH)
-        print("Teil ist nicht mehr drin, GPIO HIGH")
     except Exception as e:
-      print(f"Fehler in output(): {e}")
       continue
 
 #Hauptfunktion in der alles zusammengepackt wird 
