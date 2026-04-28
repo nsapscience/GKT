@@ -1,41 +1,69 @@
 #Hauptskript
-
 #----------------------------------------------------------------------------------------------------------------------------------
-
 #Autor: Noel Sappeck
-#Datum: 27.04.2026
+#Datum: 28.04.2026
 #GitHub: "https://github.com/nsapscience/GKT/tree/main/In-or-Out"
 
-#Ziel ist es eine Objekterkennungski, wie YOLO, in den Maschinenprozess zu implementieren, welches der Maschine ein Signal gibt
-#ob ein Produkt sich noch in der Form befindet, oder vollständig entfernt wurde.
-
+#Ziel ist es eine Künstliche Intelligenz zur Objekterkennung, wie YOLO, in den Maschinenprozess zu implementieren, 
+#welches der Maschine ein Signal gibt ob ein Produkt sich noch in der Form befindet, oder vollständig entfernt wurde.
 #---------------------------------------------------------------------------------------------------------------------------------
 
 #Import aller benötigte Komponenten
+#KI
 from ultralytics import YOLO
-import os
-import time
-from contextlib import redirect_stderr, redirect_stdout, contextmanager
+#Für Parallelität
 from threading import Thread
 from queue import Queue
+#Jetson Orin Nano Super
+import Jetson
+import Jetson.GPIO as GPIO
+#Der Rest
 import cv2
 import torch
+import os
+import time
+#Für Konsole
+from contextlib import redirect_stderr, redirect_stdout, contextmanager
 
 #Definitionen
+#Kameras initialisieren, anpassbar je nach Anzahl der Kameras
 cameras = [cv2.VideoCapture(i) for i in range(1)]
-model_path = "yolov8n.engine" if os.path.exists("yolov8n.engine") else "yolov8n.pt"
-model = YOLO(model_path, device='cuda' if torch.cuda.is_available() else 'cpu') 
-inside = True #Grundlegend ist ein Teil in der Form, sicherheit das die Maschine nicht einfach wieder losfährt
-frame_queue = Queue(maxsize=10)  # Queue für Frames vom Analyse-Thread zum Hauptthread, begrenzte Größe um Speicher zu sparen
+#YOLO-Modell laden, als -.engine Datei, für Schnelligkeit
+model = YOLO("yolov8n.engine", device='cuda' if torch.cuda.is_available() else 'cpu') 
+#Grundlegend ist ein Teil in der Form, sicherheit das die Maschine nicht einfach wieder losfährt
+inside = True 
+#Queue für Frames vom Analyse-Thread zum Hauptthread, begrenzte Größe um Speicher zu sparen
+frame_queue = Queue(maxsize=10)
 stop_analysis = False  # Flagge zum Beenden der Analyse
+#globale Variable, die verfolgt, ob die GPIO-Initialisierung bereits erfolgt ist (um Mehrfachinitialisierungen zu vermeiden)
+global_initialized_gpio = False
+#GPIO-Pins für Signalausgabe an die Maschine
+PIN_OUT = 10
+PIN2_OUT = 11
 
-@contextmanager #*Dadurch ist die Konsole nicht voll mit Informationen
+#GPIO initialisieren
+def init_gpio():
+  global global_initialized_gpio, PIN_OUT
+  
+  GPIO.setmode(GPIO.BOARD)
+  GPIO.setup(PIN_OUT, GPIO.OUT, initial=GPIO.LOW)
+  global_initialized_gpio = True
+  print("GPIO initialisiert")
+
+#GPIO aufräumen
+def cleanup_gpio():
+  if global_initialized_gpio:
+    GPIO.cleanup()
+    print("GPIO aufgeräumt")
+
+#Konsolenausgabe der KI unterdrücken
+@contextmanager 
 def suppress_output():
   with open(os.devnull, 'w') as devnull:
     with redirect_stdout(devnull), redirect_stderr(devnull):
       yield
 
-#Kamera-Auflösung
+#Kameraaufnahmeauflösung einstellen, damit weniger Speicher und CPU verwendet wird
 for cam in cameras:
   cam.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
   cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
@@ -72,12 +100,24 @@ def analyse():
       # Frame in Queue für Hauptthread legen
       frame_queue.put(annotated_frame)
 
-#An Maschine Signal schicken
+#An Maschine Signal schicken, ob Produkt noch in der Form ist oder nicht
 def output():
-  if inside == True:
-    print("Teil noch drin, HALT")
-  elif inside == False:
-    print("Teil ist nicht mehr drin, WEITER")
+  global inside, global_initialized_gpio
+  
+  if not global_initialized_gpio:
+    init_gpio()
+  
+  while not stop_analysis:
+    if inside == True:
+      # Teil noch in der Form - GPIO LOW (kein Signal)
+      GPIO.output(PIN_OUT, GPIO.LOW)
+      print("Teil noch drin, GPIO LOW")
+    else:
+      # Teil nicht mehr in der Form - GPIO HIGH (Signal gesendet)
+      GPIO.output(PIN_OUT, GPIO.HIGH)
+      print("Teil ist nicht mehr drin, GPIO HIGH")
+    
+    time.sleep(0.1)  # 100ms Verzögerung, um CPU-Auslastung zu reduzieren
 
 #Hauptfunktion in der alles zusammengepackt wird 
 def main():
@@ -108,10 +148,14 @@ def main():
   # Aufräumen
   t_analyse.join(timeout=5)
   
+  #GPIO aufräumen
+  cleanup_gpio()
+  
+  #Kameras freigeben und Fenster schließen
   for cam in cameras:
     cam.release()
   cv2.destroyAllWindows()
 
-#*Aufrufen und Ausführen der main()-Funktion
+#Aufrufen und Ausführen der main()-Funktion
 if __name__ == "__main__":
   main()
