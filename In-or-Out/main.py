@@ -28,7 +28,7 @@ from contextlib import redirect_stderr, redirect_stdout, contextmanager
 #Kameras initialisieren, anpassbar je nach Anzahl der Kameras
 cameras = [cv2.VideoCapture(i) for i in range(1)]
 #YOLO-Modell laden, als -.engine Datei, für Schnelligkeit
-model = YOLO("yolov8n.engine", device='cuda' if torch.cuda.is_available() else 'cpu') 
+model = YOLO("yolov8n.engine")
 #Grundlegend ist ein Teil in der Form, sicherheit das die Maschine nicht einfach wieder losfährt
 inside = True 
 #Queue für Frames vom Analyse-Thread zum Hauptthread, begrenzte Größe um Speicher zu sparen
@@ -37,7 +37,7 @@ stop_analysis = False  # Flagge zum Beenden der Analyse
 #globale Variable, die verfolgt, ob die GPIO-Initialisierung bereits erfolgt ist (um Mehrfachinitialisierungen zu vermeiden)
 global_initialized_gpio = False
 #GPIO-Pins für Signalausgabe an die Maschine
-PIN_OUT = 10
+PIN_OUT = 7
 
 #GPIO initialisieren
 def init_gpio():

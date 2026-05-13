@@ -31,7 +31,7 @@ time.sleep(1)
 #Kameras initialisieren, anpassbar je nach Anzahl der Kameras
 cameras = [cv2.VideoCapture(i) for i in range(1)]
 #YOLO-Modell laden, als -.engine Datei, für Schnelligkeit
-model = YOLO("yolov8n.engine", device='cuda' if torch.cuda.is_available() else 'cpu') 
+model = YOLO("yolov8n.engine")
 #Grundlegend ist ein Teil in der Form, sicherheit das die Maschine nicht einfach wieder losfährt
 inside = True 
 #Queue für Frames vom Analyse-Thread zum Hauptthread, begrenzte Größe um Speicher zu sparen
@@ -62,7 +62,7 @@ def cleanup_gpio():
     GPIO.cleanup()
 
     print("cleanup_gpio() abgeschlossen")
-    time.sleep(1)
+  
 
 #Konsolenausgabe der KI unterdrücken
 @contextmanager 
@@ -72,7 +72,7 @@ def suppress_output():
       yield
 
   print("suppress_output() abgeschlossen")
-  time.sleep(1)    
+    
 
 #Kameraaufnahmeauflösung einstellen, damit weniger Speicher und CPU verwendet wird
 for cam in cameras:
@@ -80,15 +80,14 @@ for cam in cameras:
   cam.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
 
 print("Kameraauflösung eingestellt")
-time.sleep(1)
+
 
 #Hier passiert alles wichtige
 def analyse():
   global inside, stop_analysis
   
   print("Analyse-Thread gestartet")
-  time.sleep(1)
-
+  
   while not stop_analysis:  
     try:
       for idx, cam in enumerate(cameras):
@@ -112,8 +111,7 @@ def analyse():
                 detected = True
 
                 print(f"Objekt erkannt mit Konfidenz {conf:.2f}")
-                time.sleep(1)
-
+               
                 break
             if detected:
               break
@@ -130,13 +128,13 @@ def analyse():
       continue
 
     print("analyse() Schleife abgeschlossen")
-    time.sleep(1)
+   
 
 #An Maschine Signal schicken, ob Produkt noch in der Form ist oder nicht
 def output():
 
   print("Output-Thread gestartet")
-  time.sleep(1)
+
 
   global inside, global_initialized_gpio
   
@@ -150,26 +148,25 @@ def output():
         GPIO.output(PIN_OUT, GPIO.LOW)
 
         print("Teil erkannt - GPIO LOW")
-        time.sleep(1)
+   
 
       else:
         # Teil nicht mehr in der Form - GPIO HIGH (Signal gesendet)
         GPIO.output(PIN_OUT, GPIO.HIGH)
 
         print("Teil nicht erkannt - GPIO HIGH")
-        time.sleep(1)
+     
 
     except Exception as e:
       continue
 
     print("output() Schleife abgeschlossen")
-    time.sleep(1)
-
+   
 #Hauptfunktion in der alles zusammengepackt wird 
 def main():
 
   print("Hauptfunktion gestartet")
-  time.sleep(1)
+  
 
   global stop_analysis
   
@@ -211,7 +208,6 @@ def main():
   cv2.destroyAllWindows()
   
   print("Hauptfunktion abgeschlossen - Aufräumen durchgeführt")
-  time.sleep(1)
 
 #Aufrufen und Ausführen der main()-Funktion
 if __name__ == "__main__":

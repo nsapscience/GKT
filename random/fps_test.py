@@ -1,10 +1,11 @@
 import cv2
 from ultralytics import YOLO
+import onnxruntime
 import time
 import threading
 import queue
 
-model = YOLO("yolov8n.pt")
+model = YOLO("yolov8n.engine")
 cam = cv2.VideoCapture(0)
 
 # Kamera-Auflösung reduzieren für mehr FPS
