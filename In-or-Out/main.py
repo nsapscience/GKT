@@ -26,24 +26,30 @@ from contextlib import redirect_stderr, redirect_stdout, contextmanager
 
 #Definitionen
 #Kameras initialisieren, anpassbar je nach Anzahl der Kameras
-cameras = [cv2.VideoCapture(i) for i in range(1)]
+cameras = []
+for i in range(1):
+  cam = cv2.VideoCapture(i)
+  cam.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+  cameras.append(cam)  
 #YOLO-Modell laden, als -.engine Datei, für Schnelligkeit
 model = YOLO("yolov8n.engine")
 #Grundlegend ist ein Teil in der Form, sicherheit das die Maschine nicht einfach wieder losfährt
-inside = True 
-#Queue für Frames vom Analyse-Thread zum Hauptthread, begrenzte Größe um Speicher zu sparen
-frame_queue = Queue(maxsize=20)
+inside = False
+#Queue für Frames vom Analyse-Thread zum Hauptthread, kleine Größe für niedrige Latenz
+frame_queue = Queue(maxsize=2)
 stop_analysis = False  # Flagge zum Beenden der Analyse
 #globale Variable, die verfolgt, ob die GPIO-Initialisierung bereits erfolgt ist (um Mehrfachinitialisierungen zu vermeiden)
 global_initialized_gpio = False
 #GPIO-Pins für Signalausgabe an die Maschine
-PIN_OUT = 7
+GPIO_MODE = GPIO.BOARD
+PIN_OUT = 19
+LED_ACTIVE_HIGH = False  # Setze auf False, wenn LED aktiv low verdrahtet ist
 
 #GPIO initialisieren
 def init_gpio():
-  global global_initialized_gpio, PIN_OUT
+  global global_initialized_gpio, PIN_OUT, GPIO_MODE
   
-  GPIO.setmode(GPIO.BOARD)
+  GPIO.setmode(GPIO_MODE)
   GPIO.setup(PIN_OUT, GPIO.OUT, initial=GPIO.LOW)
   global_initialized_gpio = True
 
@@ -68,7 +74,7 @@ for cam in cameras:
 def analyse():
   global inside, stop_analysis
   
-  while not stop_analysis:  
+  while not stop_analysis: 
     try:
       for idx, cam in enumerate(cameras):
         ret, frame = cam.read()
@@ -76,33 +82,48 @@ def analyse():
         if not ret:
             continue
 
-        with suppress_output():
-          results = model(frame, imgsz=320, conf=0.5, half=torch.cuda.is_available(), verbose=False)
-        annotated_frame = results[0].plot()
-
-        # Prüfe, ob irgendein Objekt erkannt wurde
-        detected = False
-        for result in results:
-          boxes = result.boxes
-          if len(boxes) > 0:
-            for box in boxes:
-              conf = box.conf[0]
-              if conf > 0.5:
-                detected = True
-                break
-            if detected:
-              break
-        
-        inside = detected  # True wenn Teil erkannt, False sonst
-        
-        # Frame in Queue legen, ohne Blockieren
         try:
-          frame_queue.put_nowait(annotated_frame)
+          with suppress_output():
+            results = model(frame, imgsz=640, conf=0.5, half=torch.cuda.is_available(), verbose=False)
+          
+          if results is None or len(results) == 0:
+            continue
+            
+          annotated_frame = results[0].plot()
+          
+          if annotated_frame is None:
+            continue
+
+          # Prüfe, ob irgendein Objekt erkannt wurde
+          detected = False
+          for result in results:
+            boxes = result.boxes
+            if len(boxes) > 0:
+              for box in boxes:
+                conf = box.conf[0]
+                if conf > 0.5:
+                  detected = True
+                  break
+              if detected:
+                break
+          
+          inside = detected
+          
+          # Frame in Queue legen - überschreibe alte wenn voll
+          try:
+            frame_queue.put_nowait(annotated_frame)
+          except:
+            try:
+              frame_queue.get_nowait()
+              frame_queue.put_nowait(annotated_frame)
+            except:
+              pass
+          
         except:
-          # Queue voll - Frame überspringen
           pass
-    except Exception as e:
-      continue
+          
+    except:
+      pass
 
 #An Maschine Signal schicken, ob Produkt noch in der Form ist oder nicht
 def output():
@@ -110,17 +131,23 @@ def output():
   
   if not global_initialized_gpio:
     init_gpio()
+    # LED vor Start auf aus setzen
+    if LED_ACTIVE_HIGH:
+      GPIO.output(PIN_OUT, GPIO.LOW)
+    else:
+      GPIO.output(PIN_OUT, GPIO.HIGH)
   
   while not stop_analysis:
+    time.sleep(0.1)
     try:
-      if inside == True:
-        # Teil noch in der Form - GPIO LOW (kein Signal)
-        GPIO.output(PIN_OUT, GPIO.LOW)
+      if inside:
+        # Objekt erkannt - LED an
+        GPIO.output(PIN_OUT, GPIO.HIGH if LED_ACTIVE_HIGH else GPIO.LOW)
       else:
-        # Teil nicht mehr in der Form - GPIO HIGH (Signal gesendet)
-        GPIO.output(PIN_OUT, GPIO.HIGH)
-    except Exception as e:
-      continue
+        # Kein Objekt erkannt - LED aus
+        GPIO.output(PIN_OUT, GPIO.LOW if LED_ACTIVE_HIGH else GPIO.HIGH)
+    except Exception:
+      pass
 
 #Hauptfunktion in der alles zusammengepackt wird 
 def main():
@@ -135,22 +162,29 @@ def main():
   t_output.start()
   
   # Fenster im Hauptthread anzeigen
-  while True:
+  fps_time = time.time()
+  fps_count = 0
+  
+  while not stop_analysis:
     try:
-      # Frame aus Queue ohne Timeout holen
-      frame = frame_queue.get_nowait()
+      frame = frame_queue.get(timeout=0.5)
       cv2.imshow('YOLOv8 Detection', frame)
+      fps_count += 1
+      
+      # FPS anzeigen alle 30 Frames
+      if fps_count % 30 == 0:
+        elapsed = time.time() - fps_time
+        fps = 30 / elapsed
+        fps_time = time.time()
+        fps_count = 0
     except:
-      # Queue ist leer - weitermachen ohne warten
       pass
     
-    try:
-      if cv2.waitKey(1) & 0xFF == ord('q'):
-        stop_analysis = True
-        break
-    except:
-      # Fehler bei waitKey - ignorieren
-      pass
+    # Wichtig: waitKey muss nach imshow aufgerufen werden
+    key = cv2.waitKey(1) & 0xFF
+    if key == ord('q'):
+      stop_analysis = True
+      break
   
   # Aufräumen
   t_analyse.join(timeout=5)
